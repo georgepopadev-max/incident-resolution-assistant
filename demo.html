@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incident Resolution Assistant</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-primary: #0a0e14;
+    --bg-secondary: #111821;
+    --bg-card: #1a2332;
+    --bg-card-hover: #1e2a3d;
+    --border: #2a3a50;
+    --teal: #00d4aa;
+    --teal-dim: rgba(0,212,170,0.12);
+    --teal-glow: rgba(0,212,170,0.25);
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --green: #22c55e;
+    --text-primary: #e2e8f0;
+    --text-secondary: #8899aa;
+    --text-muted: #5a6a7a;
+    --user-bubble: #00b894;
+    --user-bubble-bg: rgba(0,184,148,0.15);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+
+  body {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  .sidebar-header {
+    padding: 20px 16px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sidebar-header .logo {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--teal), #00a080);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .sidebar-header h1 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+    line-height: 1.3;
+  }
+  .sidebar-header h1 span {
+    display: block;
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 400;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .sidebar-search {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-search input {
+    width: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+  .sidebar-search input::placeholder { color: var(--text-muted); }
+  .sidebar-search input:focus { border-color: var(--teal); }
+  .sidebar-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .sidebar-list::-webkit-scrollbar { width: 4px; }
+  .sidebar-list::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .incident-item {
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 4px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    animation: slideIn 0.3s ease;
+  }
+  .incident-item:hover { background: var(--bg-card-hover); }
+  .incident-item.active {
+    background: var(--teal-dim);
+    border-color: rgba(0,212,170,0.3);
+  }
+  .incident-item .inc-id {
+    font-size: 11px;
+    color: var(--teal);
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .incident-item .inc-title {
+    font-size: 12px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    line-height: 1.4;
+  }
+  .incident-item .inc-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+  }
+  .badge-resolved { background: rgba(34,197,94,0.2); color: var(--green); }
+  .badge-active { background: rgba(239,68,68,0.2); color: var(--red); }
+  .badge-sev {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .badge-sev-crit { background: rgba(239,68,68,0.3); color: #fca5a5; }
+  .badge-sev-high { background: rgba(245,158,11,0.3); color: #fcd34d; }
+  .badge-sev-medium { background: rgba(59,130,246,0.3); color: #93c5fd; }
+
+  /* Main Area */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Incident Header */
+  .incident-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .incident-header-left {
+    flex: 1;
+  }
+  .incident-header .inc-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .incident-header .inc-top .big-id {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--teal);
+    letter-spacing: 0.5px;
+  }
+  .incident-header .inc-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  .incident-header .inc-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .incident-header .inc-dates {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    display: flex;
+    gap: 16px;
+  }
+  .quick-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    align-items: center;
+  }
+  .btn {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-resolve {
+    background: rgba(34,197,94,0.15);
+    color: var(--green);
+    border: 1px solid rgba(34,197,94,0.3);
+  }
+  .btn-resolve:hover { background: rgba(34,197,94,0.25); }
+  .btn-jira {
+    background: var(--teal-dim);
+    color: var(--teal);
+    border: 1px solid rgba(0,212,170,0.3);
+  }
+  .btn-jira:hover { background: rgba(0,212,170,0.2); }
+
+  /* Chat */
+  .chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .chat-area::-webkit-scrollbar { width: 6px; }
+  .chat-area::-webkit-scrollbar-track { background: transparent; }
+  .chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .msg { display: flex; margin-bottom: 4px; animation: fadeIn 0.4s ease; }
+  .msg-user { justify-content: flex-end; }
+  .msg-assistant { justify-content: flex-start; }
+
+  .bubble {
+    max-width: 72%;
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .msg-user .bubble {
+    background: var(--user-bubble-bg);
+    border: 1px solid rgba(0,184,148,0.25);
+    border-radius: 12px 12px 4px 12px;
+    color: #a8f0e0;
+  }
+  .msg-assistant .bubble {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px 12px 12px 4px;
+    color: var(--text-primary);
+  }
+  .msg-assistant .bubble .prefix {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--teal);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .msg-assistant .bubble .prefix::before {
+    content: '';
+    width: 16px;
+    height: 16px;
+    background: var(--teal);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E") center/contain no-repeat;
+    display: inline-block;
+  }
+
+  /* Citations */
+  .citations {
+    margin: 8px 0 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 72%;
+  }
+  .citations-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .citations-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .citation-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--teal);
+    border-radius: 0 8px 8px 0;
+    padding: 10px 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    animation: fadeIn 0.5s ease;
+  }
+  .citation-card .doc-icon {
+    width: 28px;
+    height: 28px;
+    background: var(--teal-dim);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+    color: var(--teal);
+  }
+  .citation-card .doc-info { flex: 1; min-width: 0; }
+  .citation-card .doc-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .citation-card .doc-snippet {
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .citation-card .relevance {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--teal);
+    background: var(--teal-dim);
+    padding: 3px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  /* Retrieval indicator */
+  .retrieval-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    margin: 8px 0 16px 0;
+    max-width: 72%;
+    font-size: 11px;
+    color: var(--text-muted);
+    animation: fadeIn 0.3s ease;
+  }
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--teal);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .retrieval-bar {
+    flex: 1;
+    height: 3px;
+    background: var(--bg-card);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .retrieval-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--teal), #00ffcc);
+    border-radius: 2px;
+    animation: retrievalPulse 1.5s ease-in-out infinite;
+    width: 0%;
+  }
+  @keyframes retrievalPulse {
+    0% { width: 0%; }
+    50% { width: 80%; }
+    100% { width: 100%; }
+  }
+
+  /* Chat Input */
+  .chat-input-area {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+  }
+  .chat-input-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  .chat-input-wrapper textarea {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-family: inherit;
+    resize: none;
+    outline: none;
+    min-height: 46px;
+    max-height: 120px;
+    line-height: 1.5;
+    transition: border-color 0.2s;
+    field-sizing: content;
+  }
+  .chat-input-wrapper textarea::placeholder { color: var(--text-muted); }
+  .chat-input-wrapper textarea:focus { border-color: var(--teal); }
+  .send-btn {
+    width: 46px;
+    height: 46px;
+    background: var(--teal);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    color: #0a0e14;
+  }
+  .send-btn:hover { background: #00ffcc; transform: scale(1.05); }
+  .send-btn:active { transform: scale(0.97); }
+  .send-btn svg { width: 18px; height: 18px; }
+
+  /* Timestamp divider */
+  .time-divider {
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .time-divider::before, .time-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Status bar */
+  .status-bar {
+    padding: 8px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  .status-item { display: flex; align-items: center; gap: 5px; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">⚡</div>
+    <h1>Incident Resolution<span>AI Assistant</span></h1>
+  </div>
+  <div class="sidebar-search">
+    <input type="text" placeholder="Search incidents..." id="searchInput">
+  </div>
+  <div class="sidebar-list" id="sidebarList">
+    <!-- Populated by JS -->
+  </div>
+</div>
+
+<!-- Main Area -->
+<div class="main">
+  <div class="incident-header" id="incidentHeader">
+    <!-- Populated by JS -->
+  </div>
+  <div class="chat-area" id="chatArea">
+    <!-- Populated by JS -->
+  </div>
+  <div class="chat-input-area">
+    <div class="chat-input-wrapper">
+      <textarea id="chatInput" placeholder="Describe the issue or ask a question..." rows="1"></textarea>
+      <button class="send-btn" id="sendBtn" title="Send message">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div class="status-bar">
+    <div class="status-item"><div class="status-dot"></div> RAG Engine Online</div>
+    <div class="status-item">● 5 docs indexed</div>
+    <div class="status-item">● Latency: ~120ms avg</div>
+  </div>
+</div>
+
+<script>
+// ─── Knowledge Base ───────────────────────────────────────────────
+const KB = {
+  "Billing Service Runbook": {
+    relevance: 91,
+    snippet: "The billing service timeout is configured to 30s, but the upstream payment processor typically responds in 40-50s under load. This causes 504 errors on approximately 15% of transactions during peak hours."
+  },
+  "API Gateway Timeout Procedures": {
+    relevance: 78,
+    snippet: "API Gateway default timeout is 30s. For billing endpoints, recommended timeout is 60s with retry configured for 2 attempts with exponential backoff starting at 1s."
+  },
+  "Database Connection Pool Configuration": {
+    relevance: 73,
+    snippet: "HikariCP recommended settings for high-concurrency billing workloads: maximumPoolSize=50, minimumIdle=10, connectionTimeout=30000, idleTimeout=600000, maxLifetime=1800000."
+  },
+  "Memory Leak Detection Guide": {
+    relevance: 68,
+    snippet: "Java heap analysis patterns: look for char[]/String duplicates in heap dumps, check for unclosed streams, monitor Metaspace expansion. Common culprit: JDBC result sets not closed in finally blocks."
+  },
+  "Grid Sensor Communication Protocol": {
+    relevance: 65,
+    snippet: "When grid sensor goes offline, check: (1) heartbeat timeout threshold (default 30s), (2) MQTT broker connectivity, (3) devicefirmware version compatibility. Sensor auto-recovery occurs within 5-minute window."
+  }
+};
+
+// ─── Incidents ────────────────────────────────────────────────────
+const incidents = [
+  {
+    id: "INC-4582",
+    title: "Billing API 504 Gateway Timeout",
+    severity: "critical",
+    status: "active",
+    created: "2026-05-03T14:22:00Z",
+    updated: "2026-05-03T19:45:00Z",
+    description: "Production billing API returning 504 Gateway Timeout errors. Affects all payment processing. Error rate ~15% and climbing. Transaction volume is normal, issue started ~2 hours ago.",
+    messages: [
+      { role: "user", text: "Getting 504 errors on the billing API. What's going on?" },
+      { role: "assistant", text: "I found relevant documentation. The billing service has a known timeout misconfiguration — the upstream payment processor responds in 40-50s under load but the billing service timeout is set to 30s. This is a confirmed root cause.\n\nRecommended actions:\n1. Increase billing service timeout to 60s\n2. Configure retry with exponential backoff\n3. Monitor error rate for next 30 minutes" },
+      { role: "user", text: "How many transactions are affected?" },
+      { role: "assistant", text: "Based on the current error rate of ~15% and your normal transaction volume of approximately 2,400 requests/minute, estimated affected transactions: ~360 per hour.\n\nI've cross-referenced the API Gateway logs. The timeout spike started at 12:18 UTC. The payment processor's status page shows elevated latency since 11:45 UTC." }
+    ]
+  },
+  {
+    id: "INC-4451",
+    title: "Database Connection Pool Exhausted",
+    severity: "critical",
+    status: "resolved",
+    created: "2026-04-28T09:15:00Z",
+    updated: "2026-04-28T11:30:00Z",
+    description: "HikariCP connection pool reaching maximum capacity during peak hours. Application servers experiencing connection timeouts. Resolved by tuning pool parameters.",
+    messages: [
+      { role: "user", text: "Getting connection timeout errors on the app server" },
+      { role: "assistant", text: "Analyzed the connection pool metrics. HikariCP pool is configured with maximumPoolSize=20, which is insufficient for your peak load. The pool has been exhausting on weekdays between 10:00-14:00.\n\nRecommended fix: increase maximumPoolSize to 50 and minimumIdle to 15. Also check for connection leaks using the leakedConnectionTimeout setting." },
+      { role: "user", text: "Anything else I should look for?" },
+      { role: "assistant", text: "Yes, look for unclosed database connections in the application code. I found several DAO methods that open connections but don't properly close them in finally blocks. This is causing gradual connection exhaustion.\n\nAlso consider setting connectionTimeout to 30000ms and maxLifetime to 1800000ms to prevent stale connections." }
+    ]
+  },
+  {
+    id: "INC-4390",
+    title: "Memory Leak in Order Service",
+    severity: "high",
+    status: "resolved",
+    created: "2026-04-15T16:40:00Z",
+    updated: "2026-04-15T23:10:00Z",
+    description: "Order service experiencing gradual heap memory increase over 72 hours. GC logs show char[] arrays accumulating. Service becoming unresponsive after 4 days of uptime.",
+    messages: [
+      { role: "user", text: "Order service heap is growing, GC not keeping up" },
+      { role: "assistant", text: "This matches the classic pattern from the Memory Leak Detection Guide. The heap dump analysis shows char[] arrays accumulating in the String pool, which indicates String concatenation in loops without proper cleanup.\n\nCheck for: (1) Order objects stored in static collections, (2) ResultSet objects not closed in finally blocks, (3) Large log strings being built in a loop." },
+      { role: "user", text: "Found it — ResultSet wasn't being closed" },
+      { role: "assistant", text: "Confirmed. That's the root cause. JDBC ResultSets hold significant memory and should always be closed in try-finally or using try-with-resources. After the fix, monitor the heap for 48 hours to confirm the leak is resolved.\n\nFor prevention, consider using a code scanning rule to flag open ResultSets." }
+    ]
+  },
+  {
+    id: "INC-4671",
+    title: "Grid Sensor Offline — Zone 7",
+    severity: "medium",
+    status: "active",
+    created: "2026-05-03T18:05:00Z",
+    updated: "2026-05-03T20:30:00Z",
+    description: "Grid sensor in Zone 7 has gone offline. Last heartbeat received 45 minutes ago. Other sensors in the grid are operational. Manual intervention may be required.",
+    messages: [
+      { role: "user", text: "Sensor Z7-23 is offline" },
+      { role: "assistant", text: "According to the Grid Sensor Communication Protocol, sensors go offline after 30 seconds without a heartbeat. Your sensor's last heartbeat was 45 minutes ago, well beyond the auto-recovery window.\n\nChecklist:\n1. Verify MQTT broker is reachable from sensor\n2. Check sensor power supply\n3. Confirm firmware version is compatible (requires v2.4+)\n4. Try power-cycling the sensor" },
+      { role: "user", text: "MQTT broker seems fine, other sensors are connected" },
+      { role: "assistant", text: "Given the MQTT broker is operational for other sensors, the issue is likely sensor-specific. Check:\n\n1. Physical connection — verify Ethernet/power to Z7-23\n2. Local firewall might be blocking the sensor's outbound port 1883\n3. The sensor may need a firmware re-flash\n\nWould you like me to prepare a sensor re-registration script?" }
+    ]
+  }
+];
+
+// ─── State ─────────────────────────────────────────────────────────
+let selectedId = "INC-4582";
+let isRetrieving = false;
+
+// ─── Render sidebar ───────────────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById('sidebarList');
+  list.innerHTML = incidents.map(inc => `
+    <div class="incident-item ${inc.id === selectedId ? 'active' : ''}" onclick="selectIncident('${inc.id}')">
+      <div class="inc-id">
+        ${inc.id}
+        <span class="badge ${inc.status === 'resolved' ? 'badge-resolved' : 'badge-active'}">${inc.status}</span>
+        <span class="badge-sev badge-sev-${inc.severity === 'critical' ? 'crit' : inc.severity === 'high' ? 'high' : 'medium'}">${inc.severity}</span>
+      </div>
+      <div class="inc-title">${inc.title}</div>
+      <div class="inc-meta">
+        <span>${formatDate(inc.created)}</span>
+        <span>${inc.messages.length} msgs</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── Render incident header ────────────────────────────────────────
+function renderHeader() {
+  const inc = incidents.find(i => i.id === selectedId);
+  const header = document.getElementById('incidentHeader');
+  header.innerHTML = `
+    <div class="incident-header-left">
+      <div class="inc-top">
+        <span class="big-id">${inc.id}</span>
+        <span class="badge ${inc.status === 'resolved' ? 'badge-resolved' : 'badge-active'}">${inc.status}</span>
+        <span class="badge-sev badge-sev-${inc.severity === 'critical' ? 'crit' : inc.severity === 'high' ? 'high' : 'medium'}">${inc.severity}</span>
+      </div>
+      <div class="inc-title">${inc.title}</div>
+      <div class="inc-desc">${inc.description}</div>
+      <div class="inc-dates">
+        <span>Created: ${formatDate(inc.created)}</span>
+        <span>Updated: ${formatDate(inc.updated)}</span>
+      </div>
+    </div>
+    <div class="quick-actions">
+      <button class="btn btn-resolve" onclick="markResolved()">✓ Mark Resolved</button>
+      <button class="btn btn-jira" onclick="createJira()">⊞ Create Jira</button>
+    </div>
+  `;
+}
+
+// ─── Render chat ───────────────────────────────────────────────────
+function renderChat() {
+  const inc = incidents.find(i => i.id === selectedId);
+  const area = document.getElementById('chatArea');
+  area.innerHTML = inc.messages.map(msg => {
+    if (msg.role === 'user') {
+      return `<div class="msg msg-user"><div class="bubble">${escapeHtml(msg.text)}</div></div>`;
+    } else {
+      return `<div class="msg msg-assistant">
+        <div class="bubble">
+          <div class="prefix">Assistant</div>
+          ${msg.text.split('\n').map(l => `<p style="margin-bottom:6px">${escapeHtml(l)}</p>`).join('')}
+        </div>
+      </div>`;
+    }
+  }).join('');
+  area.scrollTop = area.scrollHeight;
+}
+
+// ─── Show retrieval animation then add response ────────────────────
+function simulateRetrieval(userText, callback) {
+  const area = document.getElementById('chatArea');
+  const indicatorId = 'retrieval-' + Date.now();
+
+  // Add user message
+  area.innerHTML += `<div class="msg msg-user"><div class="bubble">${escapeHtml(userText)}</div></div>`;
+  area.scrollTop = area.scrollHeight;
+
+  // Add retrieval indicator
+  const retrievalHtml = `
+    <div class="retrieval-indicator" id="${indicatorId}">
+      <div class="spinner"></div>
+      <span>Retrieving relevant documents...</span>
+      <div class="retrieval-bar"><div class="retrieval-bar-fill"></div></div>
+    </div>
+  `;
+  area.innerHTML += retrievalHtml;
+  area.scrollTop = area.scrollHeight;
+
+  // After delay, remove indicator and show response
+  setTimeout(() => {
+    const indicator = document.getElementById(indicatorId);
+    if (indicator) indicator.remove();
+
+    const kbResult = getRelevantDoc(userText);
+
+    area.innerHTML += `
+      <div class="msg msg-assistant">
+        <div class="bubble">
+          <div class="prefix">Assistant</div>
+          ${kbResult.response.split('\n').map(l => `<p style="margin-bottom:6px">${escapeHtml(l)}</p>`).join('')}
+        </div>
+      </div>
+      <div class="citations">
+        <div class="citations-label">Retrieved Sources</div>
+        ${kbResult.citations.map(c => `
+          <div class="citation-card">
+            <div class="doc-icon">📄</div>
+            <div class="doc-info">
+              <div class="doc-name">${c.title}</div>
+              <div class="doc-snippet">${c.snippet}</div>
+            </div>
+            <div class="relevance">${c.relevance}%</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    area.scrollTop = area.scrollHeight;
+
+    isRetrieving = false;
+    document.getElementById('sendBtn').disabled = false;
+  }, 1200 + Math.random() * 600);
+}
+
+// ─── RAG simulation ────────────────────────────────────────────────
+function getRelevantDoc(query) {
+  const q = query.toLowerCase();
+  let docs = [];
+
+  if (q.includes('504') || q.includes('timeout') || q.includes('billing')) {
+    docs = [
+      { title: "Billing Service Runbook", ...KB["Billing Service Runbook"] },
+      { title: "API Gateway Timeout Procedures", ...KB["API Gateway Timeout Procedures"] }
+    ];
+  } else if (q.includes('connection') || q.includes('pool') || q.includes('hikari')) {
+    docs = [
+      { title: "Database Connection Pool Configuration", ...KB["Database Connection Pool Configuration"] },
+      { title: "API Gateway Timeout Procedures", ...KB["API Gateway Timeout Procedures"] }
+    ];
+  } else if (q.includes('memory') || q.includes('heap') || q.includes('leak') || q.includes('gc')) {
+    docs = [
+      { title: "Memory Leak Detection Guide", ...KB["Memory Leak Detection Guide"] },
+      { title: "Database Connection Pool Configuration", ...KB["Database Connection Pool Configuration"] }
+    ];
+  } else if (q.includes('sensor') || q.includes('grid') || q.includes('offline') || q.includes('heartbeat')) {
+    docs = [
+      { title: "Grid Sensor Communication Protocol", ...KB["Grid Sensor Communication Protocol"] },
+      { title: "API Gateway Timeout Procedures", ...KB["API Gateway Timeout Procedures"] }
+    ];
+  } else {
+    docs = [
+      { title: "Billing Service Runbook", ...KB["Billing Service Runbook"] },
+      { title: "API Gateway Timeout Procedures", ...KB["API Gateway Timeout Procedures"] },
+      { title: "Database Connection Pool Configuration", ...KB["Database Connection Pool Configuration"] }
+    ];
+  }
+
+  const response = buildResponse(query, docs);
+
+  return {
+    response,
+    citations: docs.map(d => ({ title: d.title, relevance: d.relevance, snippet: d.snippet }))
+  };
+}
+
+function buildResponse(query, docs) {
+  const q = query.toLowerCase();
+
+  if (q.includes('504') || (q.includes('timeout') && q.includes('billing'))) {
+    return `Based on the billing service runbook, this is a known issue with the connection pool configuration. The billing service timeout is set to 30s, but the upstream payment processor responds in 40-50s under load. This causes 504 errors on approximately 15% of transactions during peak hours.
+
+Recommended actions:
+1. Increase billing service timeout to 60s
+2. Configure retry with exponential backoff (2 attempts, starting at 1s)
+3. Monitor error rate for the next 30 minutes
+4. Consider escalating to the payment processor if errors persist`;
+  }
+  if (q.includes('connection') && q.includes('pool')) {
+    return `Analyzed the connection pool metrics. HikariCP recommended settings for high-concurrency workloads: maximumPoolSize=50, minimumIdle=10, connectionTimeout=30000, idleTimeout=600000, maxLifetime=1800000.
+
+Check for connection leaks — look for unclosed connections in finally blocks or try-with-resources blocks. Setting leakedConnectionTimeout to 30000 can help detect these automatically.
+
+Also verify your database can handle the increased connection load by checking active connections via: SELECT count(*) FROM pg_stat_activity WHERE state = 'active';`;
+  }
+  if (q.includes('memory') || q.includes('heap') || q.includes('leak')) {
+    return `This matches patterns from the Memory Leak Detection Guide. Java heap issues typically stem from: (1) Unclosed streams/connections, (2) Static collections accumulating objects, (3) String concatenation in loops.
+
+Recommended steps:
+1. Take a heap dump: jmap -dump:format=b,file=heap.hprof <pid>
+2. Analyze with Eclipse MAT or VisualVM
+3. Look for char[]/String duplicates — indicates string concatenation issues
+4. Check ResultSet and Connection cleanup in DAO layers
+
+For immediate relief, consider adding -XX:+UseG1GC if not already enabled.`;
+  }
+  if (q.includes('sensor') || q.includes('grid') || q.includes('offline')) {
+    return `According to the Grid Sensor Communication Protocol, sensors go offline after 30 seconds without a heartbeat. Check in this order:
+
+1. MQTT broker connectivity — verify broker is reachable from the sensor
+2. Physical layer — check power and network cables
+3. Firmware compatibility — requires v2.4+ for proper heartbeat protocol
+4. Heartbeat timeout threshold — may need adjustment for noisy network environments
+
+Sensors have a 5-minute auto-recovery window. If the sensor has been offline longer than that, a manual power cycle is typically required.`;
+  }
+
+  return `I've searched the knowledge base and found ${docs.length} relevant documents. The most applicable guidance comes from "${docs[0].title}" with ${docs[0].relevance}% relevance.
+
+${docs[0].snippet}
+
+Would you like me to pull more details from this document, or search for related incident patterns?`;
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────
+function escapeHtml(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// ─── Interactions ─────────────────────────────────────────────────
+function selectIncident(id) {
+  selectedId = id;
+  renderSidebar();
+  renderHeader();
+  renderChat();
+}
+
+function markResolved() {
+  const inc = incidents.find(i => i.id === selectedId);
+  if (inc.status !== 'resolved') {
+    inc.status = 'resolved';
+    inc.updated = new Date().toISOString();
+    renderSidebar();
+    renderHeader();
+  }
+}
+
+function createJira() {
+  const inc = incidents.find(i => i.id === selectedId);
+  alert(`Jira ticket created:\n\n${inc.id}: ${inc.title}\nSeverity: ${inc.severity}\nDescription: ${inc.description}`);
+}
+
+function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || isRetrieving) return;
+
+  input.value = '';
+  isRetrieving = true;
+  document.getElementById('sendBtn').disabled = true;
+  simulateRetrieval(text);
+}
+
+// ─── Init ──────────────────────────────────────────────────────────
+renderSidebar();
+renderHeader();
+renderChat();
+
+document.getElementById('sendBtn').addEventListener('click', sendMessage);
+document.getElementById('chatInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+document.getElementById('searchInput').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase();
+  document.querySelectorAll('.incident-item').forEach((el, i) => {
+    const match = incidents[i].title.toLowerCase().includes(q) || incidents[i].id.toLowerCase().includes(q);
+    el.style.display = match ? '' : 'none';
+  });
+});
+</script>
+</body>
+</html>
