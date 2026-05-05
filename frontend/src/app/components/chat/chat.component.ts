@@ -307,8 +307,9 @@ export class ChatComponent implements OnChanges {
     this.inputMessage = query;
   }
 
-  onEnterKey(event: KeyboardEvent) {
-    if (!event.shiftKey) {
+  onEnterKey(event: Event) {
+    const ke = event as KeyboardEvent;
+    if (!ke.shiftKey) {
       event.preventDefault();
       this.sendMessage();
     }

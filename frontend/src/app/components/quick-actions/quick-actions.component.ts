@@ -6,7 +6,7 @@ import { IncidentService } from '../../services/incident.service';
 @Component({
   selector: 'app-quick-actions',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="quick-actions" *ngIf="hasActiveThread">
       <button class="action-btn resolved" (click)="markResolved.emit()">

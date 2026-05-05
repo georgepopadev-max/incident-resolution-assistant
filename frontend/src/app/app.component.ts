@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { ChatComponent } from './components/chat/chat.component';
 import { ThreadSidebarComponent } from './components/thread-sidebar/thread-sidebar.component';
 import { CitationCardComponent } from './components/citation-card/citation-card.component';
@@ -9,6 +10,7 @@ import { QuickActionsComponent } from './components/quick-actions/quick-actions.
   selector: 'app-root',
   standalone: true,
   imports: [
+    CommonModule,
     ChatComponent,
     ThreadSidebarComponent,
     CitationCardComponent,
