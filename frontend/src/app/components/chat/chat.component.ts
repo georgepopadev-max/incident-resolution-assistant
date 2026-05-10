@@ -213,6 +213,41 @@ import { ChatMessage, ChatResponse, Citation } from '../../models/incident.model
       text-align: right;
     }
     
+    /* Responsive styles */
+    @media (max-width: 1200px) {
+      .chat-header h1 { font-size: 18px; }
+      .subtitle { font-size: 12px; }
+      .message-content { max-width: 75%; }
+    }
+    
+    @media (max-width: 900px) {
+      .messages-container { padding: 16px; }
+      .welcome-state { padding: 24px 16px; }
+      .message-content { max-width: 80%; }
+    }
+    
+    @media (max-width: 600px) {
+      .messages-container { padding: 12px; }
+      .welcome-state { padding: 20px 12px; }
+      .welcome-icon { font-size: 36px; }
+      .welcome-state h2 { font-size: 20px; }
+      .example-queries { gap: 6px; }
+      .example-queries button { padding: 10px 12px; font-size: 12px; }
+      .message { margin-bottom: 16px; }
+      .message-content { max-width: 85%; }
+      .message-text { padding: 10px 12px; font-size: 13px; }
+    }
+    
+    @media (max-width: 480px) {
+      .chat-header { padding: 16px; }
+      .chat-header h1 { font-size: 16px; }
+      .message-content { max-width: 90%; min-width: 60%; }
+      .message-text { padding: 8px 10px; font-size: 12px; }
+      .input-container { padding: 12px; }
+      .input-container textarea { padding: 10px; font-size: 13px; }
+      .send-button { padding: 10px 14px; font-size: 13px; }
+    }
+    
     .typing-indicator {
       display: flex;
       gap: 4px;

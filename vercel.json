@@ -1,5 +1,5 @@
 {
   "buildCommand": "npm install && npm run build",
-  "outputDirectory": "dist/incident-resolution-assistant/browser",
+  "outputDirectory": "dist/incident-resolution-assistant",
   "framework": "angular"
 }

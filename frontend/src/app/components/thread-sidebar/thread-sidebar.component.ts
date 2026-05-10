@@ -149,6 +149,36 @@ import { Thread } from '../../models/incident.model';
       font-size: 12px;
       margin-top: 8px;
     }
+    
+    /* Responsive styles */
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 60px;
+      }
+      .sidebar-header h2,
+      .thread-item .thread-title,
+      .thread-item .thread-meta,
+      .empty-state p {
+        display: none;
+      }
+      .sidebar-header {
+        justify-content: center;
+        padding: 12px 8px;
+      }
+      .badge {
+        font-size: 10px;
+        padding: 2px 6px;
+      }
+      .thread-item {
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .thread-status {
+        margin-bottom: 0;
+      }
+    }
   `]
 })
 export class ThreadSidebarComponent implements OnInit {

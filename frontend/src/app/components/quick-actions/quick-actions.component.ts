@@ -128,6 +128,32 @@ import { IncidentService } from '../../services/incident.service';
       color: #8b949e;
       font-size: 14px;
     }
+    
+    /* Responsive styles */
+    @media (max-width: 1200px) {
+      .quick-actions { gap: 10px; padding: 14px; }
+      .action-btn { padding: 8px 14px; font-size: 13px; }
+    }
+    
+    @media (max-width: 900px) {
+      .quick-actions { flex-wrap: wrap; }
+      .streaming-toggle { margin-left: 0; width: 100%; justify-content: center; margin-top: 8px; }
+    }
+    
+    @media (max-width: 600px) {
+      .quick-actions { padding: 12px; gap: 8px; }
+      .action-btn { padding: 8px 12px; font-size: 12px; }
+      .action-btn .icon { font-size: 14px; }
+      .action-btn span:last-child { display: none; }
+      .action-btn .icon { margin-right: 0; }
+    }
+    
+    @media (max-width: 480px) {
+      .quick-actions { flex-direction: column; }
+      .action-btn { width: 100%; justify-content: center; }
+      .action-btn span:last-child { display: inline; }
+      .streaming-toggle { flex-direction: column; align-items: flex-start; gap: 4px; }
+    }
   `]
 })
 export class QuickActionsComponent {
