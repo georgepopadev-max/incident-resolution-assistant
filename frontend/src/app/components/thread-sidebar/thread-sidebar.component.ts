@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IncidentService } from '../../services/incident.service';
 import { Thread } from '../../models/incident.model';
@@ -11,30 +11,35 @@ import { Thread } from '../../models/incident.model';
     <aside class="sidebar">
       <div class="sidebar-header">
         <h2>Incidents</h2>
-        <span class="badge">{{ threads.length }}</span>
+        <span class="badge">{{ threads().length }}</span>
       </div>
       
       <div class="thread-list">
-        <div *ngFor="let thread of threads"
-             class="thread-item"
-             [class.active]="thread.id === selectedThreadId"
-             [class.resolved]="thread.status === 'RESOLVED'"
-             (click)="selectThread(thread)">
-          <div class="thread-status">
-            <span class="status-dot" [class]="thread.status.toLowerCase()"></span>
-            <span class="status-label">{{ thread.status }}</span>
+        @for (thread of threads(); track thread.id) {
+          <div class="thread-item"
+               [class.active]="thread.id === selectedThreadId()"
+               [class.resolved]="thread.status === 'RESOLVED'"
+               (click)="selectThread(thread)">
+            <div class="thread-status">
+              <span class="status-dot" [class]="thread.status.toLowerCase()"></span>
+              <span class="status-label">{{ thread.status }}</span>
+            </div>
+            <div class="thread-title">{{ thread.title }}</div>
+            <div class="thread-meta">
+              <span class="thread-time">{{ formatTime(thread.createdAt) }}</span>
+              @if (thread.category) {
+                <span class="thread-category">{{ thread.category }}</span>
+              }
+            </div>
           </div>
-          <div class="thread-title">{{ thread.title }}</div>
-          <div class="thread-meta">
-            <span class="thread-time">{{ formatTime(thread.createdAt) }}</span>
-            <span class="thread-category" *ngIf="thread.category">{{ thread.category }}</span>
-          </div>
-        </div>
+        }
         
-        <div *ngIf="threads.length === 0" class="empty-state">
-          <p>No incidents yet</p>
-          <p class="hint">Start a conversation to create your first incident thread</p>
-        </div>
+        @if (threads().length === 0) {
+          <div class="empty-state">
+            <p>No incidents yet</p>
+            <p class="hint">Start a conversation to create your first incident thread</p>
+          </div>
+        }
       </div>
     </aside>
   `,
@@ -182,8 +187,8 @@ import { Thread } from '../../models/incident.model';
   `]
 })
 export class ThreadSidebarComponent implements OnInit {
-  @Input() threads: Thread[] = [];
-  @Input() selectedThreadId: string | null = null;
+  threads = signal<Thread[]>([]);
+  selectedThreadId = signal<string | null>(null);
   @Output() threadSelected = new EventEmitter<string>();
 
   private incidentService = inject(IncidentService);
@@ -194,12 +199,13 @@ export class ThreadSidebarComponent implements OnInit {
 
   loadThreads() {
     this.incidentService.getThreads().subscribe({
-      next: (threads) => this.threads = threads,
+      next: (threads) => this.threads.set(threads),
       error: (err) => console.error('Failed to load threads:', err)
     });
   }
 
   selectThread(thread: Thread) {
+    this.selectedThreadId.set(thread.id);
     this.threadSelected.emit(thread.id);
   }
 
