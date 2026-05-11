@@ -2,39 +2,42 @@ import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IncidentService } from '../../services/incident.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-quick-actions',
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="quick-actions" *ngIf="hasActiveThread">
-      <button class="action-btn resolved" (click)="markResolved.emit()">
-        <span class="icon">✓</span>
-        <span>Mark Resolved</span>
-      </button>
-      
-      <button class="action-btn jira" (click)="createJira.emit()">
-        <span class="icon">📋</span>
-        <span>Create Jira</span>
-      </button>
-      
-      <button class="action-btn oncall" (click)="pageOnCall()">
-        <span class="icon">🔔</span>
-        <span>Page On-Call</span>
-      </button>
-      
-      <div class="streaming-toggle">
-        <label>
-          <input type="checkbox" [(ngModel)]="streamingEnabled" (change)="onStreamingChange()">
-          <span>Streaming mode</span>
-        </label>
+    @if (hasActiveThread) {
+      <div class="quick-actions">
+        <button class="action-btn resolved" (click)="markResolved.emit()">
+          <span class="icon">✓</span>
+          <span>Mark Resolved</span>
+        </button>
+        
+        <button class="action-btn jira" (click)="createJira.emit()">
+          <span class="icon">📋</span>
+          <span>Create Jira</span>
+        </button>
+        
+        <button class="action-btn oncall" (click)="pageOnCall()">
+          <span class="icon">🔔</span>
+          <span>Page On-Call</span>
+        </button>
+        
+        <div class="streaming-toggle">
+          <label>
+            <input type="checkbox" [(ngModel)]="streamingEnabled" (change)="onStreamingChange()">
+            <span>Streaming mode</span>
+          </label>
+        </div>
       </div>
-    </div>
-    
-    <div class="quick-actions-placeholder" *ngIf="!hasActiveThread">
-      <p>Start a conversation to enable quick actions</p>
-    </div>
+    } @else {
+      <div class="quick-actions-placeholder">
+        <p>Start a conversation to enable quick actions</p>
+      </div>
+    }
   `,
   styles: [`
     .quick-actions {
@@ -165,10 +168,11 @@ export class QuickActionsComponent {
   streamingEnabled = true;
 
   private incidentService = inject(IncidentService);
+  private toastService = inject(ToastService);
 
   pageOnCall() {
     if (confirm('Send PagerDuty alert for this incident?')) {
-      alert('PagerDuty alert sent (simulated)');
+      this.toastService.success('PagerDuty alert sent (simulated)');
     }
   }
 
