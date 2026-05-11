@@ -6,6 +6,7 @@ import { CitationCardComponent } from './components/citation-card/citation-card.
 import { ResolutionFormComponent } from './components/resolution-form/resolution-form.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { ToastComponent } from './components/toast/toast.component';
+import { DemoBannerComponent } from './components/demo-banner/demo-banner.component';
 import { Thread, ChatMessage, Citation } from './models/incident.model';
 import { IncidentService } from './services/incident.service';
 
@@ -19,9 +20,11 @@ import { IncidentService } from './services/incident.service';
     CitationCardComponent,
     ResolutionFormComponent,
     QuickActionsComponent,
-    ToastComponent
+    ToastComponent,
+    DemoBannerComponent
   ],
   template: `
+    <app-demo-banner></app-demo-banner>
     <app-toast></app-toast>
     <div class="app-container">
       <app-thread-sidebar
