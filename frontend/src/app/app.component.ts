@@ -1,10 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ChatComponent } from './components/chat/chat.component';
 import { ThreadSidebarComponent } from './components/thread-sidebar/thread-sidebar.component';
 import { CitationCardComponent } from './components/citation-card/citation-card.component';
 import { ResolutionFormComponent } from './components/resolution-form/resolution-form.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
+import { ToastComponent } from './components/toast/toast.component';
+import { Thread, ChatMessage, Citation } from './models/incident.model';
+import { IncidentService } from './services/incident.service';
 
 @Component({
   selector: 'app-root',
@@ -15,47 +18,49 @@ import { QuickActionsComponent } from './components/quick-actions/quick-actions.
     ThreadSidebarComponent,
     CitationCardComponent,
     ResolutionFormComponent,
-    QuickActionsComponent
+    QuickActionsComponent,
+    ToastComponent
   ],
   template: `
+    <app-toast></app-toast>
     <div class="app-container">
       <app-thread-sidebar
-        [threads]="threads"
-        [selectedThreadId]="selectedThreadId"
         (threadSelected)="onThreadSelected($event)">
       </app-thread-sidebar>
       
       <main class="main-content">
         <app-chat
-          [messages]="messages"
-          [isLoading]="isLoading"
+          [messages]="messages()"
+          [isLoading]="isLoading()"
           (messageSent)="onMessageSent($event)">
         </app-chat>
         
         <app-quick-actions
-          [threadId]="selectedThreadId"
-          [hasActiveThread]="!!selectedThreadId && hasActiveThread"
-          (markResolved)="showResolutionForm = true"
+          [threadId]="selectedThreadId()"
+          [hasActiveThread]="hasActiveThread()"
+          (markResolved)="showResolutionForm.set(true)"
           (createJira)="onCreateJira()">
         </app-quick-actions>
         
-        <div class="citations-area" *ngIf="currentCitations.length > 0">
-          <h3>Sources</h3>
-          <div class="citations-grid">
-            <app-citation-card
-              *ngFor="let citation of currentCitations"
-              [citation]="citation">
-            </app-citation-card>
+        @if (currentCitations().length > 0) {
+          <div class="citations-area">
+            <h3>Sources</h3>
+            <div class="citations-grid">
+              @for (citation of currentCitations(); track citation.documentId) {
+                <app-citation-card [citation]="citation"></app-citation-card>
+              }
+            </div>
           </div>
-        </div>
+        }
       </main>
       
-      <app-resolution-form
-        *ngIf="showResolutionForm"
-        [threadId]="selectedThreadId"
-        (closed)="showResolutionForm = false"
-        (submitted)="onResolutionSubmitted()">
-      </app-resolution-form>
+      @if (showResolutionForm()) {
+        <app-resolution-form
+          [threadId]="selectedThreadId()"
+          (closed)="showResolutionForm.set(false)"
+          (submitted)="onResolutionSubmitted()">
+        </app-resolution-form>
+      }
     </div>
   `,
   styles: [`
@@ -100,29 +105,50 @@ import { QuickActionsComponent } from './components/quick-actions/quick-actions.
   `]
 })
 export class AppComponent {
-  threads: any[] = [];
-  messages: any[] = [];
-  selectedThreadId: string | null = null;
-  currentCitations: any[] = [];
-  isLoading = false;
-  showResolutionForm = false;
-  hasActiveThread = true;
+  private incidentService = inject(IncidentService);
+  
+  // Signals for state
+  threads = signal<Thread[]>([]);
+  messages = signal<ChatMessage[]>([]);
+  selectedThreadId = signal<string | null>(null);
+  currentCitations = signal<Citation[]>([]);
+  isLoading = signal(false);
+  showResolutionForm = signal(false);
+  hasActiveThread = computed(() => !!this.selectedThreadId());
 
-  onThreadSelected(threadId: string) {
-    this.selectedThreadId = threadId;
-    // Messages will be loaded by the chat component
+  constructor() {
+    this.loadThreads();
   }
 
-  onMessageSent(result: { message: string; citations: any[] }) {
-    this.currentCitations = result.citations;
+  loadThreads(): void {
+    this.incidentService.getThreads().subscribe({
+      next: (threads) => this.threads.set(threads),
+      error: (err) => console.error('Failed to load threads:', err)
+    });
   }
 
-  onCreateJira() {
+  onThreadSelected(threadId: string): void {
+    this.selectedThreadId.set(threadId);
+    this.loadMessages(threadId);
+  }
+
+  loadMessages(threadId: string): void {
+    this.incidentService.getThreadMessages(threadId).subscribe({
+      next: (messages) => this.messages.set(messages),
+      error: (err) => console.error('Failed to load messages:', err)
+    });
+  }
+
+  onMessageSent(result: { message: string; citations: Citation[] }): void {
+    this.currentCitations.set(result.citations);
+  }
+
+  onCreateJira(): void {
     console.log('Create Jira clicked');
   }
 
-  onResolutionSubmitted() {
-    this.showResolutionForm = false;
-    // Refresh threads
+  onResolutionSubmitted(): void {
+    this.showResolutionForm.set(false);
+    this.loadThreads();
   }
 }
