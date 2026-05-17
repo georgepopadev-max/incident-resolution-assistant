@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npm install && npm run build",
-  "outputDirectory": "dist/incident-resolution-assistant",
+  "buildCommand": "npm run build",
+  "outputDirectory": "frontend/dist/incident-resolution-assistant/browser",
   "framework": "angular",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
