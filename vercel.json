@@ -1,5 +1,8 @@
 {
   "buildCommand": "npm install && npm run build",
   "outputDirectory": "dist/incident-resolution-assistant",
-  "framework": "angular"
+  "framework": "angular",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
